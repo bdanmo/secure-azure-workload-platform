@@ -126,3 +126,67 @@ variable "github_environments" {
   type        = list(string)
   default     = []
 }
+
+# ============================================================================
+# Default Storage Configuration
+# ============================================================================
+
+variable "create_default_storage" {
+  description = "Create a default storage account per environment for application runtime needs"
+  type        = bool
+  default     = false
+}
+
+variable "storage_account_name_prefix" {
+  description = "Optional override for storage account name prefix (max 17 chars, will be appended with env+location). If not provided, uses app_name."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.storage_account_name_prefix == "" || can(regex("^[a-z0-9]{1,17}$", var.storage_account_name_prefix))
+    error_message = "Storage account name prefix must be 1-17 characters, lowercase letters and numbers only."
+  }
+}
+
+variable "default_storage" {
+  description = "Configuration for default storage accounts (one per environment)"
+  type = object({
+    account_tier             = optional(string, "Standard")
+    account_replication_type = optional(string, "LRS")
+    account_kind             = optional(string, "StorageV2")
+    access_tier              = optional(string, "Hot")
+
+    # Security settings (opinionated defaults)
+    min_tls_version                 = optional(string, "TLS1_2")
+    allow_nested_items_to_be_public = optional(bool, false)
+    public_network_access_enabled   = optional(bool, false)
+    shared_access_key_enabled       = optional(bool, false) # Prefer Managed Identity
+
+    # Network rules
+    network_rules = optional(object({
+      default_action             = optional(string, "Deny")
+      bypass                     = optional(list(string), ["AzureServices"])
+      ip_rules                   = optional(list(string), [])
+      virtual_network_subnet_ids = optional(list(string), [])
+    }), {})
+
+    # Blob properties with retention
+    blob_properties = optional(object({
+      versioning_enabled       = optional(bool, true)
+      change_feed_enabled      = optional(bool, false)
+      last_access_time_enabled = optional(bool, true)
+
+      delete_retention_policy = optional(object({
+        days = optional(number, 7)
+      }), { days = 7 })
+
+      container_delete_retention_policy = optional(object({
+        days = optional(number, 7)
+      }), { days = 7 })
+    }), {})
+
+    # Simple container list (plumbing only, no app logic)
+    containers = optional(list(string), [])
+  })
+  default = {}
+}
