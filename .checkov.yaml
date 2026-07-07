@@ -1,0 +1,39 @@
+# Checkov posture for this repo. Real hardening lives in the modules
+# (TLS 1.2+, no shared keys, no public access, RBAC-mode key vaults,
+# purge protection). The skips below are either demo-scope trade-offs
+# or checks checkov cannot evaluate through optional() object defaults —
+# each one is annotated. See docs/security-model.md for the reasoning.
+framework:
+  - terraform
+skip-check:
+  # -- Out of demo scope: private endpoints / VNet integration for PaaS.
+  #    The workload foundation doesn't manage network topology; noted in
+  #    the security model as the next hardening layer.
+  - CKV2_AZURE_32 # key vault private endpoint
+  - CKV2_AZURE_33 # storage private endpoint
+  - CKV_AZURE_109 # key vault firewall default-deny (breaks portal/CLI demo usage)
+  - CKV_AZURE_189 # key vault public network access (same trade-off as above)
+  # -- Out of demo scope: central ops/logging stack owns these.
+  - CKV2_AZURE_21 # blob read logging (diagnostic settings live in the ops stack)
+  - CKV2_AZURE_1  # customer-managed keys (platform-managed keys accepted here)
+  - CKV2_AZURE_41 # SAS expiration policy (shared keys are disabled entirely)
+  # -- Enforced via variable defaults on the storage module; checkov cannot
+  #    resolve values passed through optional() object attributes, so these
+  #    report as failures despite being set (see modules/workload/variables.tf).
+  - CKV_AZURE_34  # container public access ("private" is hardcoded)
+  - CKV_AZURE_35  # network default deny (default in default_storage.network_rules)
+  - CKV_AZURE_36  # trusted services bypass (default in default_storage.network_rules)
+  - CKV_AZURE_44  # min TLS 1.2 (default in default_storage)
+  - CKV_AZURE_59  # disallow public access (default in default_storage)
+  - CKV_AZURE_190 # blob public access (default in default_storage)
+  - CKV_AZURE_206 # replication type (default LRS in default_storage)
+  - CKV2_AZURE_38 # blob soft delete (delete_retention_policy default 7 days)
+  - CKV2_AZURE_40 # shared key auth (disabled by default in default_storage)
+  - CKV2_AZURE_47 # anonymous blob access (disabled by default in default_storage)
+  # -- Deliberate design decisions.
+  - CKV_AZURE_50  # "no VM extensions" — Entra ID SSH login IS the extension
+  - CKV_AZURE_41  # secret expiration: optional client secrets are break-glass only;
+  - CKV_AZURE_114 # content_type on that same optional secret
+  - CKV2_GIT_1    # branch protection: seeded repos hand off to app teams
+  - CKV_GIT_3     # alerts ARE enabled via github_repository_vulnerability_alerts;
+                  # the check only inspects the deprecated field on github_repository

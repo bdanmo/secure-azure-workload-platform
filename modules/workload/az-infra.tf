@@ -32,6 +32,11 @@ resource "azurerm_key_vault" "app_kv" {
   sku_name                  = "standard"
   enable_rbac_authorization = true
 
+  # Recoverability: soft delete is service-enforced; purge protection stops
+  # anyone (including admins) from permanently destroying secrets in the window
+  soft_delete_retention_days = 7
+  purge_protection_enabled   = true
+
   tags = merge(local.default_tags_template, var.tags, { Environment = each.key == "" ? "prod" : each.key })
 
   depends_on = [

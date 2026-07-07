@@ -10,6 +10,11 @@ resource "github_repository" "app" {
   auto_init = true
 }
 
+resource "github_repository_vulnerability_alerts" "app" {
+  count      = var.create_github_repo ? 1 : 0
+  repository = github_repository.app[0].name
+}
+
 # Deployment environments, keyed off the same github_environments list that
 # drives the OIDC environment subjects in az-oidc.tf so the GitHub gate and
 # the Azure claim can't drift apart. Only the environment's existence (what
