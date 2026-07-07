@@ -57,3 +57,39 @@ output "platform_permissions" {
     }
   } : {}
 }
+
+# OIDC service principal (if enabled)
+output "oidc_service_principal_id" {
+  description = "Object ID of the OIDC service principal"
+  value       = var.azure_oidc.enabled ? module.oidc_app_registration[0].service_principal_id : null
+}
+
+output "oidc_service_principal_name" {
+  description = "Display name of the OIDC service principal"
+  value       = var.azure_oidc.enabled ? module.oidc_app_registration[0].display_name : null
+}
+
+output "oidc_details" {
+  description = "Complete OIDC details for GitHub Actions setup"
+  value = var.azure_oidc.enabled ? {
+    client_id              = module.oidc_app_registration[0].client_id
+    tenant_id              = data.azurerm_client_config.current.tenant_id
+    subscription_id        = data.azurerm_client_config.current.subscription_id
+    service_principal_id   = module.oidc_app_registration[0].service_principal_id
+    service_principal_name = module.oidc_app_registration[0].display_name
+    group_memberships = [
+      "${var.app_name}-admins",
+      "terraform-state-readers"
+    ]
+  } : null
+}
+
+output "repository_url" {
+  description = "GitHub repository URL used for OIDC integration"
+  value       = var.azure_oidc.repository
+}
+
+output "oidc_enabled" {
+  description = "Whether Azure OIDC is enabled for this application"
+  value       = var.azure_oidc.enabled
+}

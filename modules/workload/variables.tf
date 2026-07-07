@@ -87,3 +87,42 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "azure_oidc" {
+  description = "Azure OIDC configuration"
+  type = object({
+    enabled    = bool
+    repository = string
+    role_assignments = optional(list(object({
+      role  = string
+      scope = string
+    })), [])
+    required_resource_access = optional(list(object({
+      resource_app_id   = string
+      resource_accesses = list(object({ id = string, type = string }))
+    })), [])
+  })
+  default = { enabled = false, repository = "" }
+}
+
+# ============================================================================
+# GitHub Configuration
+# ============================================================================
+
+variable "create_github_repo" {
+  description = "Create a GitHub repository for this application"
+  type        = bool
+  default     = true
+}
+
+variable "github_org" {
+  description = "GitHub organization for the repository"
+  type        = string
+  default     = "contoso-eng"
+}
+
+variable "github_environments" {
+  description = "GitHub Environment names to create on the repository. Each also adds an OIDC federated credential subject (repo:<repository>:environment:<name>) so environment-gated deploy jobs can authenticate. Gate details (reviewers, wait timers) are configured by the app team in their repo."
+  type        = list(string)
+  default     = []
+}
