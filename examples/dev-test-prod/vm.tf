@@ -5,7 +5,7 @@ module "dev_vm" {
   source = "../../modules/compute/linux_vm"
 
   vm_name        = "vm-payments-dev"
-  vm_size        = "Standard_B2s"
+  vm_size        = "Standard_B4ms"
   admin_username = "azureuser"
 
   resource_group_name = module.app.resource_group_names["dev"]
