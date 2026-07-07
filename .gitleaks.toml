@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+# cloud-init reformats a PEM fetched from Key Vault at boot; the sed patterns
+# contain the BEGIN/END markers as literals but no key material.
+[[allowlists]]
+paths = ['''modules/compute/linux_vm/cloud-init\.tftpl''']
