@@ -130,7 +130,6 @@ module "premium_storage" {
 | `account_replication_type` | Replication type | `string` | `"LRS"` | no |
 | `account_kind` | Storage account kind | `string` | `"StorageV2"` | no |
 | `access_tier` | Access tier | `string` | `"Hot"` | no |
-| `enable_https_traffic_only` | Force HTTPS only | `bool` | `true` | no |
 | `min_tls_version` | Minimum TLS version | `string` | `"TLS1_2"` | no |
 | `allow_nested_items_to_be_public` | Allow public blobs | `bool` | `false` | no |
 | `shared_access_key_enabled` | Enable access keys | `bool` | `true` | no |
@@ -155,7 +154,7 @@ module "premium_storage" {
 
 ## Security Features
 
-- **HTTPS enforced by default**: `enable_https_traffic_only = true`
+- **HTTPS enforced**: HTTPS-only traffic is the service default
 - **Modern TLS**: Minimum TLS 1.2 by default
 - **No public blob access**: `allow_nested_items_to_be_public = false`
 - **Network restrictions**: Support for IP rules and VNet integration
