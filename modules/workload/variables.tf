@@ -28,7 +28,7 @@ variable "environments" {
   }
 }
 
-variable "admins" {
+variable "admin_users" {
   description = "List of admin users"
   type        = list(string)
   default     = []

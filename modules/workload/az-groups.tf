@@ -4,7 +4,7 @@
 
 locals {
   cross_env_roles = merge(
-    var.admins != null && length(var.admins) > 0 ? { admins = var.admins } : {},
+    var.admin_users != null && length(var.admin_users) > 0 ? { admins = var.admin_users } : {},
     var.include_developers_group ? { developers = var.developers } : {}
   )
 }
