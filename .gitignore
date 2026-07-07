@@ -20,3 +20,6 @@ override.tf.json
 # CLI config
 .terraformrc
 terraform.rc
+
+# Lock files are committed by consuming roots, not modules
+.terraform.lock.hcl
