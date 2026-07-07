@@ -1,0 +1,61 @@
+# Environment-gated deploy for the example root.
+#
+# Auth is keyless: the job requests a GitHub OIDC token and exchanges it for
+# an Azure session via the workload's federated credential. Which jobs can
+# authenticate is pinned by the credential's subject claim:
+#   repo:<org>/<repo>:environment:<name>
+# so a job only gets cloud identity when it runs inside a matching GitHub
+# environment. Production carries required reviewers (configured on the
+# environment in repo settings), which makes prod deploys approval-gated.
+#
+# Wiring required per fork/tenant (Actions variables, not secrets — none of
+# these values are sensitive):
+#   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: choice
+        required: true
+        options: [dev, test, prod]
+
+permissions:
+  id-token: write # OIDC token for azure/login
+  contents: read
+
+concurrency: deploy-${{ inputs.environment }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        working-directory: examples/dev-test-prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: terraform init
+        run: terraform init -input=false
+
+      - name: terraform plan
+        run: terraform plan -input=false -out=tfplan
+        env:
+          ARM_USE_OIDC: "true"
+
+      - name: terraform apply
+        run: terraform apply -input=false tfplan
+        env:
+          ARM_USE_OIDC: "true"
