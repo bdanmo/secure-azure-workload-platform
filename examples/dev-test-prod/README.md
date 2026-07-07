@@ -15,6 +15,8 @@ What one module call gets the app team:
 ## Prerequisites
 
 - Azure CLI login with permissions to create AD groups, app registrations, resource groups, and role assignments
+- The identity running Terraform also needs a **Storage Blob Data role** (e.g. Storage Blob Data Owner). Management-plane roles like subscription Owner grant no data-plane access, and with shared keys disabled every blob operation — including the provider's post-create polling and container creation — authenticates through Azure AD (`storage_use_azuread = true` in the provider block is required, not optional)
+- Container creation in the default storage accounts is a data-plane call against accounts that deny public network access by default: run from an allowed network, add your egress IP via `default_storage.network_rules.ip_rules`, or use a private endpoint. Storage firewall changes take up to a minute to propagate
 - A GitHub token (or GitHub App) with org repo-creation rights for the `github` provider
 - The shared network/auth infrastructure referenced by the VM module defaults (or override those variables)
 - The example user UPNs and groups must exist in your tenant — replace `*@contoso.com` with real users
