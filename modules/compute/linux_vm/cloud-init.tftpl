@@ -1,0 +1,185 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+packages:
+%{ for package in packages_to_install ~}
+  - ${package}
+%{ endfor ~}
+%{ if length(smb_mounts) > 0 ~}
+  - cifs-utils
+%{ endif ~}
+
+write_files:
+  - path: /etc/profile.d/force-bash.sh
+    owner: root:root
+    permissions: '0755'
+    content: |
+      #!/bin/sh
+      # If we're not already in bash, and we're interactive, exec bash as a login shell.
+      if [ -z "$BASH_VERSION" ] && [ -x /usr/bin/bash ] && [ -t 0 ]; then
+        exec /usr/bin/bash -l
+      fi
+
+  - path: /etc/skel/.profile
+    owner: root:root
+    permissions: '0644'
+    append: true
+    content: |
+      if [ -x /usr/bin/bash ] && [ -z "$BASH_VERSION" ]; then
+        exec /usr/bin/bash -l
+      fi
+%{ if length(smb_mounts) > 0 ~}
+  - path: /etc/samba/credentials
+    owner: root:root
+    permissions: '0600'
+    content: |
+      username=${smb_creds.username}
+      password=PLACEHOLDER_WILL_BE_REPLACED_IN_BOOTSTRAP
+%{ endif ~}
+%{ if enable_gh_app ~}  
+  - path: /opt/github-app-token.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      
+      APP_ID="${github_app_id}"
+      INSTALLATION_ID="${github_installation_id}"
+      
+      # Get private key from Key Vault and write to temporary file with proper formatting
+      PRIVATE_KEY_FILE=$(mktemp)
+      PRIVATE_KEY_RAW=$(/usr/bin/az keyvault secret show --vault-name ${key_vault_name} --name ${github_app_secret_name} --query value -o tsv)
+      
+      # Format the private key properly
+      echo "$PRIVATE_KEY_RAW" | \
+        sed 's/-----BEGIN RSA PRIVATE KEY----- /-----BEGIN RSA PRIVATE KEY-----\n/' | \
+        sed 's/ -----END RSA PRIVATE KEY-----/\n-----END RSA PRIVATE KEY-----/' > "$PRIVATE_KEY_FILE.tmp"
+      
+      # Format the content properly - join spaces back to single line, then split into 64-char chunks
+      head -n 1 "$PRIVATE_KEY_FILE.tmp" > "$PRIVATE_KEY_FILE"  # Header
+      CONTENT=$(sed -n '2p' "$PRIVATE_KEY_FILE.tmp" | tr -d ' ')  # Remove all spaces from content
+      echo "$CONTENT" | fold -w 64 >> "$PRIVATE_KEY_FILE"  # Split into 64-char lines
+      tail -n 1 "$PRIVATE_KEY_FILE.tmp" >> "$PRIVATE_KEY_FILE"  # Footer
+      rm -f "$PRIVATE_KEY_FILE.tmp"
+
+      # Create JWT
+      HEADER='{"alg":"RS256","typ":"JWT"}'
+      PAYLOAD='{"iss":"'$APP_ID'","iat":'$(date +%s)',"exp":'$(($(date +%s) + 600))'}'
+      
+      # Create JWT token
+      HEADER_B64=$(echo -n "$HEADER" | base64 -w 0 | tr -d '=' | tr '/+' '_-')
+      PAYLOAD_B64=$(echo -n "$PAYLOAD" | base64 -w 0 | tr -d '=' | tr '/+' '_-')
+      
+      # Sign JWT
+      SIGNATURE=$(echo -n "$HEADER_B64.$PAYLOAD_B64" | openssl dgst -sha256 -sign "$PRIVATE_KEY_FILE" | base64 -w 0 | tr -d '=' | tr '/+' '_-')
+      JWT="$HEADER_B64.$PAYLOAD_B64.$SIGNATURE"
+      
+      # Clean up private key file
+      rm -f "$PRIVATE_KEY_FILE"
+      
+      # Get installation access token
+      TOKEN=$(curl -s -X POST \
+        -H "Authorization: Bearer $JWT" \
+        -H "Accept: application/vnd.github.v3+json" \
+        "https://api.github.com/app/installations/$INSTALLATION_ID/access_tokens" | jq -r .token)
+      
+      echo "$TOKEN"
+%{ endif ~}
+
+  - path: /opt/bootstrap.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      
+      # Install Azure CLI
+      curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+      
+      # Login with managed identity
+      /usr/bin/az login --identity --allow-no-subscriptions
+      
+      # Wait for RBAC/Key Vault access to be ready (up to ~15 min)
+      echo "Waiting for Key Vault access..."
+      for i in $(seq 1 60); do
+        echo "Attempt $i/60: Testing Key Vault access..."
+        
+        # Test GitHub App secret access if needed
+%{ if enable_gh_app && length(repos_to_clone) > 0 ~}
+        if /usr/bin/az keyvault secret show --vault-name ${key_vault_name} --name ${github_app_secret_name} --query name -o tsv >/dev/null 2>&1; then
+          echo "✅ GitHub App Key Vault access confirmed"
+          GH_KV_ACCESS=true
+        else
+          echo "⏳ GitHub App Key Vault access not ready..."
+          GH_KV_ACCESS=false
+        fi
+%{ else ~}
+        GH_KV_ACCESS=true  # Not needed
+%{ endif ~}
+        
+        # Test SMB credentials access if needed  
+%{ if length(smb_mounts) > 0 ~}
+        if /usr/bin/az keyvault secret show --vault-name ${auth_key_vault_name} --name ${smb_creds.password_secret} --query name -o tsv >/dev/null 2>&1; then
+          echo "✅ SMB credentials Key Vault access confirmed"
+          SMB_KV_ACCESS=true
+        else
+          echo "⏳ SMB credentials Key Vault access not ready..."
+          SMB_KV_ACCESS=false
+        fi
+%{ else ~}
+        SMB_KV_ACCESS=true  # Not needed
+%{ endif ~}
+        
+        # Check if all required access is ready
+        if [ "$GH_KV_ACCESS" = true ] && [ "$SMB_KV_ACCESS" = true ]; then
+          echo "✅ All Key Vault access confirmed - proceeding with bootstrap"
+          break
+        fi
+        
+        echo "Waiting 15 seconds before retry..."
+        sleep 15
+      done
+      
+      # Check if we timed out
+      if [ "$GH_KV_ACCESS" != true ] || [ "$SMB_KV_ACCESS" != true ]; then
+        echo "❌ ERROR: Key Vault access not ready after 15 minutes"
+        echo "GitHub App access: $GH_KV_ACCESS, SMB access: $SMB_KV_ACCESS"
+        exit 1
+      fi
+      
+%{ if enable_gh_app && length(repos_to_clone) > 0 ~}      
+      # Create directory for repos
+      REPO_DIR=$(eval echo "${repo_clone_directory}")
+      mkdir -p $REPO_DIR
+      cd $REPO_DIR
+      
+      # Get GitHub token
+      TOKEN=$(/opt/github-app-token.sh)
+      
+      # Clone repositories
+%{ for repo in repos_to_clone ~}
+      echo "Cloning ${repo}..."
+      git clone "https://x-access-token:$TOKEN@github.com/${repo}.git"
+%{ endfor ~}
+%{ else ~}
+      echo "No GitHub App enabled or no repos to clone."
+%{ endif ~}
+%{ if length(smb_mounts) > 0 ~}
+      
+      # Setup SMB credentials
+      echo "Setting up SMB credentials..."
+      SMB_PASSWORD=$(/usr/bin/az keyvault secret show --vault-name ${auth_key_vault_name} --name ${smb_creds.password_secret} --query value -o tsv)
+      sed -i "s/PLACEHOLDER_WILL_BE_REPLACED_IN_BOOTSTRAP/$SMB_PASSWORD/" /etc/samba/credentials
+      
+      # Mount SMB shares
+%{ for mount in smb_mounts ~}
+      echo "Mounting ${mount.smb_path} to ${mount.local_path}..."
+      mkdir -p ${mount.local_path}
+      mount -t cifs "${mount.smb_path}" "${mount.local_path}" -o ${mount.mount_options},credentials=/etc/samba/credentials
+      echo "${mount.smb_path} ${mount.local_path} cifs ${mount.mount_options},credentials=/etc/samba/credentials 0 0" >> /etc/fstab
+%{ endfor ~}
+%{ endif ~}
+      echo "Bootstrap complete!"
+
+runcmd:
+  - /opt/bootstrap.sh
