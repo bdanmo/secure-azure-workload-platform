@@ -48,6 +48,7 @@ See [docs/architecture.md](docs/architecture.md) for the design and [docs/securi
 ## CI
 
 - `ci.yml` runs credential-free on every PR: `terraform fmt`, `validate` (all modules + example), tflint, and checkov (posture documented in `.checkov.yaml`)
+- `infracost.yml` posts a monthly cost diff comment on every Terraform PR (the example root baselines at ~$33/month, almost all of it the dev VM)
 - `deploy.yml` is the environment-gated apply for the example root; it needs `AZURE_CLIENT_ID`/`AZURE_TENANT_ID`/`AZURE_SUBSCRIPTION_ID` repo variables wired to a real tenant, so it is dispatch-only and will not run out of the box
 
 All names in the example (`contoso.com`, `contoso-eng`, `rg-platform-iac`, `contosoiaceastus2`) are fictional defaults — override them via module variables for your tenant.

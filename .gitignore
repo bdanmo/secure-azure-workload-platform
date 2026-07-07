@@ -23,3 +23,6 @@ terraform.rc
 
 # Lock files are committed by consuming roots, not modules
 .terraform.lock.hcl
+
+# Infracost local artifacts
+.infracost/

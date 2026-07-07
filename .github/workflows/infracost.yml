@@ -1,0 +1,55 @@
+# Cost estimation on every PR that touches Terraform. Posts (and updates) a
+# single comment showing the monthly cost delta of the change against main.
+# Requires the INFRACOST_API_KEY repo secret (free tier: infracost.io).
+# Skipped for fork PRs — they can't read the secret.
+
+name: infracost
+
+on:
+  pull_request:
+    paths:
+      - "**/*.tf"
+      - "**/*.tfvars"
+      - "**/*.tfvars.example"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  infracost:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
+    steps:
+      - uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+
+      - name: generate cost baseline
+        run: |
+          infracost breakdown --path=examples/dev-test-prod \
+            --format=json --out-file=/tmp/infracost-base.json
+
+      - name: checkout pr branch
+        uses: actions/checkout@v4
+
+      - name: generate cost diff
+        run: |
+          infracost diff --path=examples/dev-test-prod \
+            --compare-to=/tmp/infracost-base.json \
+            --format=json --out-file=/tmp/infracost.json
+
+      - name: post pr comment
+        run: |
+          infracost comment github --path=/tmp/infracost.json \
+            --repo=$GITHUB_REPOSITORY \
+            --pull-request=${{ github.event.pull_request.number }} \
+            --github-token=${{ github.token }} \
+            --behavior=update
