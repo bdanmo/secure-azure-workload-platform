@@ -59,7 +59,7 @@ locals {
 # Create dedicated Terraform state container for this application
 resource "azurerm_storage_container" "terraform_state" {
   name                  = "${var.app_name}-tfstate"
-  storage_account_name  = "contosoiaceastus2" # TODO: make this dynamic with a variable later, please
+  storage_account_name  = var.state_storage_account_name
   container_access_type = "private"
 }
 

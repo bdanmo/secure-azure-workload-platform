@@ -10,7 +10,7 @@ locals {
     length(local.key_vault_ids) > 0 ? { for env in local.environments : (env == "" ? "key_vault" : "key_vault_${env}") => local.key_vault_ids[env] } : {},
     {
       subscription              = "/subscriptions/${data.azurerm_client_config.current.subscription_id}",
-      terraform_state_container = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/rg-platform-iac/providers/Microsoft.Storage/storageAccounts/contosoiaceastus2/blobServices/default/containers/${azurerm_storage_container.terraform_state.name}"
+      terraform_state_container = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.state_resource_group_name}/providers/Microsoft.Storage/storageAccounts/${var.state_storage_account_name}/blobServices/default/containers/${azurerm_storage_container.terraform_state.name}"
     }
   )
 

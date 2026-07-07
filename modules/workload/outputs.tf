@@ -31,8 +31,8 @@ output "key_vault_ids" {
 output "terraform_backend_config" {
   description = "Backend coordinates for app-specific Terraform state"
   value = {
-    resource_group_name  = "rg-platform-iac"
-    storage_account_name = "contosoiaceastus2"
+    resource_group_name  = var.state_resource_group_name
+    storage_account_name = var.state_storage_account_name
     container_name       = azurerm_storage_container.terraform_state.name
     key                  = "terraform.tfstate"
     use_azuread_auth     = true
@@ -122,8 +122,8 @@ output "application_payload" {
         resource_group_names = { for k, v in local.resource_group_names : (k == "" ? "default" : k) => v }
         key_vault_names      = { for k, v in local.key_vault_names : (k == "" ? "default" : k) => v }
         terraform_backend_config = {
-          resource_group_name  = "rg-platform-iac"
-          storage_account_name = "contosoiaceastus2"
+          resource_group_name  = var.state_resource_group_name
+          storage_account_name = var.state_storage_account_name
           container_name       = azurerm_storage_container.terraform_state.name
           key                  = "terraform.tfstate"
           use_azuread_auth     = true

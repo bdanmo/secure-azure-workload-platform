@@ -76,6 +76,18 @@ variable "location" {
   default     = "eastus2"
 }
 
+variable "state_resource_group_name" {
+  description = "Resource group of the platform storage account that holds Terraform state"
+  type        = string
+  default     = "rg-platform-iac"
+}
+
+variable "state_storage_account_name" {
+  description = "Platform storage account that holds the per-app Terraform state containers"
+  type        = string
+  default     = "contosoiaceastus2"
+}
+
 variable "state_readers_group_object_id" {
   description = "Object ID of the shared terraform-state-readers group. When set, the app's admin group is added so its members can initialize backends."
   type        = string
