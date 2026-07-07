@@ -44,3 +44,16 @@ output "groups_created" {
   description = "All groups created with their members"
   value       = local.group_details
 }
+
+output "platform_permissions" {
+  description = "Global (cross-env) role assignments for this application"
+  value = contains(keys(local.groups), "admins") ? {
+    terraform_state = {
+      scope_id       = local.scope_mappings["terraform_state_container"]
+      container_name = azurerm_storage_container.terraform_state.name
+      assignments = {
+        admins = ["Storage Blob Data Contributor"]
+      }
+    }
+  } : {}
+}
