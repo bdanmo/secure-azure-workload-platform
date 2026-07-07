@@ -115,12 +115,6 @@ variable "create_github_repo" {
   default     = true
 }
 
-variable "github_org" {
-  description = "GitHub organization for the repository"
-  type        = string
-  default     = "contoso-eng"
-}
-
 variable "github_environments" {
   description = "GitHub Environment names to create on the repository. Each also adds an OIDC federated credential subject (repo:<repository>:environment:<name>) so environment-gated deploy jobs can authenticate. Gate details (reviewers, wait timers) are configured by the app team in their repo."
   type        = list(string)

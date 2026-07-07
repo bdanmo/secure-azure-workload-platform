@@ -1,4 +1,6 @@
 terraform {
+  required_version = ">= 1.5"
+
   required_providers {
     azuread = {
       source  = "hashicorp/azuread"
@@ -13,7 +15,6 @@ terraform {
 
 locals {
   is_create = var.existing_app == null
-  is_exist  = !local.is_create
 
   repo_parts = var.github_repository != null ? split("/", var.github_repository) : null
   repo_name  = local.repo_parts != null && length(local.repo_parts) == 2 ? local.repo_parts[1] : null

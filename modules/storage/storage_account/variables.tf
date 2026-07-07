@@ -63,12 +63,6 @@ variable "access_tier" {
   }
 }
 
-variable "enable_https_traffic_only" {
-  description = "Force HTTPS traffic only"
-  type        = bool
-  default     = true
-}
-
 variable "min_tls_version" {
   description = "Minimum TLS version"
   type        = string

@@ -1,3 +1,14 @@
+terraform {
+  required_version = ">= 1.5"
+
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.0"
+    }
+  }
+}
+
 # Handle flexible resource group input (object or string)
 locals {
   resource_group_name     = try(var.resource_group.name, var.resource_group)
